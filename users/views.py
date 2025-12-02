@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import User, VehicleRequest
-from .serializers import UserRegisterSerializer
+from .serializers import UserRegisterSerializer, UserProfileSerializer
 
 class UserRegisterView(APIView):
     def post(self, request):
@@ -55,3 +55,24 @@ class VehicleRequestView(APIView):
             "request_id": req.id,
             "user_status": user.status
         })
+
+
+class UserProfileView(APIView):
+    def get(self, request, telegram_id):
+        try:
+            user = User.objects.get(telegram_id=telegram_id)
+        except User.DoesNotExist:
+            return Response({"error": "user_not_found"}, status=404)
+
+        data = UserProfileSerializer(user).data
+
+        # Если водитель активный — можем дать vehicle_id (через VehicleRequest)
+        if user.status == "active":
+            req = VehicleRequest.objects.filter(
+                user=user, status="approved"
+            ).last()
+
+            data["vehicle_id"] = req.vehicle_id if req else None
+
+        return Response(data)
+

@@ -76,6 +76,9 @@ DATABASES = {
         'PORT': os.getenv("POSTGRES_PORT", "5432"),
     }
 }
+PILOT_API_URL = os.getenv("PILOT_API_URL")
+PILOT_LOGIN = os.getenv("PILOT_LOGIN")
+PILOT_PASSWORD = os.getenv("PILOT_PASSWORD")
 
 
 # Password validation

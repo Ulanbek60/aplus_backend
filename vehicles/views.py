@@ -1,12 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from services.pilot_client import pilot_request
-
+from services.pilot_client import pilot_request_sync
 
 class VehicleListView(APIView):
-    async def get(self, request):
-        # тянем данные с Инкомтека
-        data = await pilot_request("list", 14)
+    def get(self, request):
+        data = pilot_request_sync("list", 14)
 
         result = []
 
@@ -14,14 +12,18 @@ class VehicleListView(APIView):
             fuel = None
             for s in v.get("sensors_status", []):
                 if s.get("name") == "топливо":
-                    fuel = float(s.get("dig_value"))
+                    try:
+                        fuel = float(s.get("dig_value"))
+                    except Exception:
+                        fuel = None
 
             result.append({
                 "id": v["veh_id"],
-                "name": v["vehiclenumber"],
-                "type": v["type"],
-                "lat": float(v["status"]["lat"]),
-                "lon": float(v["status"]["lon"]),
+                "name": v.get("vehiclenumber"),
+                "type": v.get("type"),
+                "lat": float(v.get("status", {}).get("lat", 0) or 0),
+                "lon": float(v.get("status", {}).get("lon", 0) or 0),
                 "fuel": fuel
             })
+
         return Response(result)
