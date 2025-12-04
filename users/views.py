@@ -14,11 +14,15 @@ from .serializers import (
 class FullRegisterView(APIView):
     def post(self, request):
         telegram_id = request.data.get("telegram_id")
+        vehicle_id = request.data.get("vehicle_id")
 
         if not telegram_id:
             return Response({"error": "telegram_id required"}, status=400)
 
-        # Проверяем, есть ли пользователь
+        if not vehicle_id:
+            return Response({"error": "vehicle_id required"}, status=400)
+
+        # создаём или обновляем пользователя
         try:
             user = User.objects.get(telegram_id=telegram_id)
             serializer = FullUserRegisterSerializer(user, data=request.data, partial=True)
@@ -30,28 +34,23 @@ class FullRegisterView(APIView):
 
         user = serializer.save()
 
-        # Логика ролей и статусов
-        if user.role == "driver":
-            user.status = "pending_vehicle"
-            user.save()
+        # создаём заявку на технику
+        req = VehicleRequest.objects.create(
+            user=user,
+            vehicle_id=vehicle_id,
+            status="pending"
+        )
 
-            return Response({
-                "status": "ok",
-                "next": "pending_vehicle",
-                "message": "Заявка отправлена. Ожидайте подтверждения техники администратором."
-            })
+        # обновляем статус пользователя
+        user.status = "pending_vehicle"
+        user.save()
 
-        if user.role == "mechanic":
-            user.status = "active"
-            user.save()
-
-            return Response({
-                "status": "ok",
-                "next": "active",
-                "message": "Механик успешно зарегистрирован."
-            })
-
-        return Response({"status": "ok"})
+        return Response({
+            "status": "ok",
+            "user_id": user.id,
+            "vehicle_request_id": req.id,
+            "next": "pending_vehicle"
+        })
 
 
 class VehicleRequestView(APIView):
