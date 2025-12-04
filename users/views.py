@@ -1,29 +1,57 @@
+# users/views.py
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
 from .models import User, VehicleRequest
-from .serializers import UserRegisterSerializer, UserProfileSerializer
+from .serializers import (
+    FullUserRegisterSerializer,
+    UserProfileSerializer
+)
 
-class UserRegisterView(APIView):
+
+class FullRegisterView(APIView):
     def post(self, request):
-        serializer = UserRegisterSerializer(data=request.data)
+        telegram_id = request.data.get("telegram_id")
 
-        if serializer.is_valid():
-            tg_id = serializer.validated_data['telegram_id']
+        if not telegram_id:
+            return Response({"error": "telegram_id required"}, status=400)
 
-            # если юзер уже есть — не создаём новый
-            user, created = User.objects.update_or_create(
-                telegram_id=tg_id,
-                defaults=serializer.validated_data
-            )
+        # Проверяем, есть ли пользователь
+        try:
+            user = User.objects.get(telegram_id=telegram_id)
+            serializer = FullUserRegisterSerializer(user, data=request.data, partial=True)
+        except User.DoesNotExist:
+            serializer = FullUserRegisterSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        user = serializer.save()
+
+        # Логика ролей и статусов
+        if user.role == "driver":
+            user.status = "pending_vehicle"
+            user.save()
+
             return Response({
                 "status": "ok",
-                "user_id": user.id,
-                "next_stage": user.status
+                "next": "pending_vehicle",
+                "message": "Заявка отправлена. Ожидайте подтверждения техники администратором."
             })
 
-        return Response(serializer.errors, status=54)
+        if user.role == "mechanic":
+            user.status = "active"
+            user.save()
+
+            return Response({
+                "status": "ok",
+                "next": "active",
+                "message": "Механик успешно зарегистрирован."
+            })
+
+        return Response({"status": "ok"})
 
 
 class VehicleRequestView(APIView):
@@ -46,7 +74,7 @@ class VehicleRequestView(APIView):
             status="pending"
         )
 
-        # Меняем статус пользователя
+        # Меняем статус
         user.status = "pending_vehicle"
         user.save()
 
@@ -66,7 +94,7 @@ class UserProfileView(APIView):
 
         data = UserProfileSerializer(user).data
 
-        # Если водитель активный — можем дать vehicle_id (через VehicleRequest)
+        # Если водитель активный — добавить vehicle_id
         if user.status == "active":
             req = VehicleRequest.objects.filter(
                 user=user, status="approved"
@@ -76,3 +104,35 @@ class UserProfileView(APIView):
 
         return Response(data)
 
+
+class ApproveVehicleView(APIView):
+    def post(self, request):
+        telegram_id = request.data.get("telegram_id")
+        vehicle_id = request.data.get("vehicle_id")
+
+        if not telegram_id or not vehicle_id:
+            return Response({"error": "telegram_id and vehicle_id required"}, status=400)
+
+        try:
+            user = User.objects.get(telegram_id=telegram_id)
+        except User.DoesNotExist:
+            return Response({"error": "user_not_found"}, status=404)
+
+        req = VehicleRequest.objects.filter(
+            user=user,
+            vehicle_id=vehicle_id
+        ).last()
+
+        if not req:
+            return Response({"error": "vehicle_request_not_found"}, status=404)
+
+        req.status = "approved"
+        req.save()
+
+        user.status = "active"
+        user.save()
+
+        return Response({
+            "status": "ok",
+            "message": "Vehicle approved and user activated."
+        })

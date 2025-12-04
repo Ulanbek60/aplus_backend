@@ -13,6 +13,7 @@ class User(models.Model):
     ]
 
     telegram_id = models.BigIntegerField(unique=True)
+
     phone = models.CharField(max_length=20, blank=True, null=True)
     name = models.CharField(max_length=50, blank=True, null=True)
     surname = models.CharField(max_length=50, blank=True, null=True)
@@ -20,6 +21,17 @@ class User(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='driver')
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='registration')
     language = models.CharField(max_length=5, default='ru')
+
+    birthdate = models.DateField(null=True, blank=True)
+
+    passport_id = models.CharField(max_length=20, null=True, blank=True)
+    iin = models.CharField(max_length=14, null=True, blank=True)
+    address = models.TextField(null=True, blank=True)
+
+    passport_front = models.CharField(max_length=200, null=True, blank=True)
+    passport_back = models.CharField(max_length=200, null=True, blank=True)
+    driver_license = models.CharField(max_length=200, null=True, blank=True)
+    selfie = models.CharField(max_length=200, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
