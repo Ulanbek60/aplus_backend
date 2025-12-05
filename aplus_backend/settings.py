@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'users',
     'vehicles',
     "drf_yasg",
+    "channels",
 ]
 
 MIDDLEWARE = [
@@ -63,7 +64,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'aplus_backend.wsgi.application'
 
-
+ASGI_APPLICATION = "aplus_backend.asgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -99,6 +100,20 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+SWAGGER_SETTINGS = {
+    "DEFAULT_INFO": "aplus_backend.urls.schema_view",
+    "USE_SESSION_AUTH": False,
+}
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("localhost", 6379)],
+        },
+    },
+}
 
 
 # Internationalization
