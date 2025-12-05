@@ -1,6 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from services.pilot_client import pilot_request_sync
+from .models import VehicleStatusHistory, FuelLevelHistory, TrackPoint, Event
+from .serializers import VehicleStatusHistorySerializer, FuelLevelHistorySerializer, TrackPointSerializer, EventSerializer
+
 
 class VehicleListView(APIView):
     def get(self, request):
@@ -27,3 +30,27 @@ class VehicleListView(APIView):
             })
 
         return Response(result)
+
+
+class VehicleStatusHistoryView(APIView):
+    def get(self, request, veh_id):
+        q = VehicleStatusHistory.objects.filter(vehicle__veh_id=veh_id).order_by("-ts")[:500]
+        return Response(VehicleStatusHistorySerializer(q, many=True).data)
+
+
+class FuelHistoryView(APIView):
+    def get(self, request, veh_id):
+        q = FuelLevelHistory.objects.filter(vehicle__veh_id=veh_id).order_by("-ts")[:500]
+        return Response(FuelLevelHistorySerializer(q, many=True).data)
+
+
+class TrackView(APIView):
+    def get(self, request, veh_id):
+        q = TrackPoint.objects.filter(vehicle__veh_id=veh_id).order_by("ts")
+        return Response(TrackPointSerializer(q, many=True).data)
+
+
+class EventView(APIView):
+    def get(self, request, veh_id):
+        q = Event.objects.filter(vehicle__veh_id=veh_id).order_by("-ts")[:300]
+        return Response(EventSerializer(q, many=True).data)
