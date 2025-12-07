@@ -1,68 +1,120 @@
+from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
-from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from rest_framework_simplejwt.views import TokenObtainPairView
+
 from .serializers import (
-    UserRegisterSerializer,
-    LoginSerializer,
+    RegisterSerializer,
+    LoginSerializers,
+    LogoutSerializer,
     UserSerializer,
     FullUserRegisterSerializer
 )
-from .models import VehicleRequest
-
+from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-# =======================
-# JWT REGISTER
-# =======================
-class RegisterView(APIView):
-    def post(self, request):
-        serializer = UserRegisterSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
+# ====================
+# REGISTER
+# ====================
+class CustomRegisterView(APIView):
+    serializer_class = RegisterSerializer
+
+    def post(self,request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         user = serializer.save()
+
         refresh = RefreshToken.for_user(user)
 
         return Response({
-            "user": UserSerializer(user).data,
-            "access": str(refresh.access_token),
-            "refresh": str(refresh)
-        }, status=201)
-
-
-# =======================
-# JWT LOGIN
-# =======================
-class LoginView(APIView):
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
-
-        user = serializer.validated_data["user"]
-        refresh = RefreshToken.for_user(user)
-
-        return Response({
-            "user": UserSerializer(user).data,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+            },
             "access": str(refresh.access_token),
             "refresh": str(refresh)
         })
 
+# ====================
+# LOGIN
+# ====================
+class CustomLoginView(TokenObtainPairView):
+    serializer_class = LoginSerializers
 
-# =======================
-# /me
-# =======================
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response(
+                {"detail": "Неверные учетные данные"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ====================
+# LOGIN FOR ADMINS ONLY
+# ====================
+class CustomAdminLoginView(TokenObtainPairView):
+    serializer_class = LoginSerializers
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response({"detail": "Неверные учетные данные"}, 401)
+
+        user = serializer.validated_data["user"]
+
+        if not (user.is_staff or user.is_superuser):
+            return Response(
+                {"detail": "Доступ разрешен только администраторам"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ====================
+# LOGOUT
+# ====================
+class LogoutView(generics.GenericAPIView):
+    serializer_class = LogoutSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        serializer.save()
+        return Response(
+            {"detail": "Вы вышли из системы."},
+            status=status.HTTP_205_RESET_CONTENT
+        )
+
+
+# ====================
+# ME
+# ====================
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
-
+        return Response({
+            "id": request.user.id,
+            "username": request.user.username,
+            "role": request.user.role,
+            "email": request.user.email,
+        })
 
 # =======================
 # TELEGRAM FULL REGISTER
