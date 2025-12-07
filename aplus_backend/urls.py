@@ -3,6 +3,8 @@ from django.urls import path, include
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -20,4 +22,7 @@ urlpatterns = [
     path("api/vehicles/", include("vehicles.urls")),
     path("api/docs/", schema_view.with_ui("swagger", cache_timeout=0), name="swagger-ui"),
     path("api/redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc-ui"),
+    path("api/token/", TokenObtainPairView.as_view()),
+    path("api/token/refresh/", TokenRefreshView.as_view()),
+
 ]
