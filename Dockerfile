@@ -12,6 +12,4 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
-# collect static
-RUN python manage.py collectstatic --noinput
-
+CMD ["gunicorn", "aplus_backend.wsgi:application", "-b", "0.0.0.0:8000", "--workers", "4"]
