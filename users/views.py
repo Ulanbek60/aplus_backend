@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from .models import VehicleRequest
 from .serializers import (
     RegisterSerializer,
     LoginSerializers,
@@ -14,6 +14,10 @@ from .serializers import (
     FullUserRegisterSerializer
 )
 from django.contrib.auth import get_user_model
+
+from vehicles.models import Vehicle, VehicleAssignment
+from django.utils import timezone
+
 User = get_user_model()
 
 
@@ -218,3 +222,27 @@ class ApproveVehicleView(APIView):
         user.save()
 
         return Response({"status": "ok"})
+
+
+
+class AssignVehicleView(APIView):
+    def post(self, request):
+        # ожидаем: { "telegram_id": 12345, "vehicle_id": 3881 }
+        telegram_id = request.data.get("telegram_id")
+        vehicle_id = request.data.get("vehicle_id")
+        if not telegram_id or not vehicle_id:
+            return Response({"error": "telegram_id and vehicle_id required"}, status=400)
+        try:
+            user = User.objects.get(telegram_id=telegram_id)
+        except User.DoesNotExist:
+            return Response({"error": "user_not_found"}, status=404)
+        try:
+            vehicle = Vehicle.objects.get(veh_id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            return Response({"error": "vehicle_not_found"}, status=404)
+
+        # снимаем предыдущие активные назначение для этого водителя или для этой машины (бизнес-логика)
+        VehicleAssignment.objects.filter(vehicle=vehicle, unassigned_at__isnull=True).update(unassigned_at=timezone.now())
+        # создаём новое назначение
+        assign = VehicleAssignment.objects.create(vehicle=vehicle, driver=user)
+        return Response({"status": "ok", "assignment_id": assign.id})

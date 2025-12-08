@@ -1,4 +1,5 @@
 from django.db import models
+from users.models import CustomUser  # твоя модель пользователя (в users/models.py)
 
 
 class Vehicle(models.Model):
@@ -7,15 +8,26 @@ class Vehicle(models.Model):
     name = models.CharField(max_length=128, null=True, blank=True)
     type = models.CharField(max_length=64, null=True, blank=True)
 
+    # Дизайн-поля
+    plate_number = models.CharField(max_length=20, null=True, blank=True)
+    vin = models.CharField(max_length=64, null=True, blank=True)
+    mileage = models.IntegerField(default=0)
+    to_remaining = models.IntegerField(default=0)
+    location_name = models.CharField(max_length=255, null=True, blank=True)
+
+    # Фото
+    photo_front = models.CharField(max_length=255, null=True, blank=True)
+    photo_back = models.CharField(max_length=255, null=True, blank=True)
+
+    # Реальное время
     lat = models.FloatField(null=True, blank=True)
     lon = models.FloatField(null=True, blank=True)
     speed = models.FloatField(null=True, blank=True)
     fuel = models.FloatField(null=True, blank=True)
 
-    updated_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=20, default="active")
 
-    def __str__(self):
-        return f"{self.name or self.imei}"
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class Track(models.Model):
@@ -86,5 +98,28 @@ class VehicleStatusHistory(models.Model):
     class Meta:
         ordering = ["-ts"]
         indexes = [models.Index(fields=["vehicle", "ts"])]
+
+
+class VehicleAssignment(models.Model):
+    # vehicle - FK на Vehicle
+    vehicle = models.ForeignKey("Vehicle", on_delete=models.CASCADE)    # привязка к технике
+    driver = models.ForeignKey(CustomUser, on_delete=models.CASCADE)         # водитель (юзер)
+    assigned_at = models.DateTimeField(auto_now_add=True)              # дата привязки
+    unassigned_at = models.DateTimeField(null=True, blank=True)        # дата открепления (если есть)
+
+    class Meta:
+        # индекс на vehicle для быстрых запросов
+        indexes = [models.Index(fields=["vehicle", "driver"])]
+
+
+class Repair(models.Model):
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE)
+    date = models.DateField()
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    parts = models.JSONField(blank=True, null=True)  # список запчастей
+    cost_parts = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    cost_work = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    status = models.CharField(max_length=32, default="done")
 
 

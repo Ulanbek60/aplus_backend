@@ -121,18 +121,18 @@ SWAGGER_SETTINGS = {
 }
 
 
-redis_url = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
-parsed = urlparse(redis_url)
+
+REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(parsed.hostname, parsed.port)],
+            "hosts": [(REDIS_HOST, REDIS_PORT)],
         },
     },
 }
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/

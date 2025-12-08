@@ -1,21 +1,60 @@
-services:
+version: "3.9"
 
-  web:
+services:
+  backend:
     build: .
+    container_name: aplus-backend
     command: >
-      bash -c "python manage.py collectstatic --noinput &&
-               python manage.py migrate &&
-               gunicorn aplus_backend.wsgi:application -b 0.0.0.0:8000"
+      bash -c "
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      daphne -b 0.0.0.0 -p 8000 aplus_backend.asgi:application
+      "
     volumes:
+      - .:/app
       - static_volume:/app/static
       - media_volume:/app/media
     env_file:
       - .env
     depends_on:
       - db
+      - redis
+    restart: always
+
+  worker:
+    build: .
+    container_name: aplus-worker
+    command: >
+      bash -c "python -m services.polling_worker"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - redis
+    restart: always
+
+  nginx:
+    build: ./nginx
+    container_name: aplus-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      - backend
+    restart: always
+
+  redis:
+    image: redis:7
+    container_name: aplus-redis
+    restart: always
 
   db:
     image: postgres:15
+    container_name: aplus-db
     restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -23,16 +62,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  nginx:
-    build: ./nginx
-    ports:
-      - "80:80"
-    depends_on:
-      - web
-    volumes:
-      - static_volume:/app/static
-      - media_volume:/app/media
 
 volumes:
   postgres_data:

@@ -9,8 +9,11 @@ from .serializers import (
     FuelLevelHistorySerializer,
     TrackPointSerializer,
     EventSerializer,
+    VehicleDetailSerializer
 )
 from services.pilot_client import pilot_request_sync
+from django.shortcuts import get_object_or_404
+
 
 
 class VehicleViewSet(viewsets.ViewSet):
@@ -127,3 +130,22 @@ class DashboardStatsView(APIView):
             "idle": idle,
             "low_fuel": low_fuel,
         })
+
+    # GET /api/vehicles/<pk>/
+    def retrieve(self, request, pk=None):
+        # pk в твоём code — это veh_id (не id). Найдём по veh_id
+        vehicle = get_object_or_404(Vehicle, veh_id=pk)
+        serializer = VehicleDetailSerializer(vehicle)
+        return Response(serializer.data)
+
+
+
+class VehicleDetailView(APIView):
+    def get(self, request, vehicle_id):
+        try:
+            v = Vehicle.objects.get(veh_id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            return Response({"error": "vehicle_not_found"}, 404)
+
+        ser = VehicleDetailSerializer(v)
+        return Response(ser.data)
