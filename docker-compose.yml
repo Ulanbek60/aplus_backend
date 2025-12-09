@@ -36,7 +36,6 @@ services:
       daphne -b 0.0.0.0 -p 8000 aplus_backend.asgi:application
       "
     volumes:
-      - .:/app
       - static_volume:/app/static
       - media_volume:/app/media
     env_file:
