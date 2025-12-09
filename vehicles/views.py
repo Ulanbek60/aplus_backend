@@ -1,18 +1,22 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Vehicle, VehicleStatusHistory, FuelLevelHistory, TrackPoint, Event
+from .models import Vehicle, VehicleStatusHistory, FuelLevelHistory, TrackPoint, Event, Repair, Vehicle
 from .serializers import (
     VehicleStatusHistorySerializer,
     FuelLevelHistorySerializer,
     TrackPointSerializer,
     EventSerializer,
-    VehicleDetailSerializer
+    VehicleDetailSerializer,
+    RepairSerializer
 )
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from services.pilot_client import pilot_request_sync
 from django.shortcuts import get_object_or_404
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
 
@@ -45,6 +49,10 @@ class VehicleViewSet(viewsets.ViewSet):
 
     # GET /api/vehicles/<id>/status/
     @action(detail=True, methods=["get"])
+    @swagger_auto_schema(
+        operation_summary="Telemetry: status history",
+        tags=["Telemetry"]
+    )
     def status(self, request, pk=None):
         q = VehicleStatusHistory.objects.filter(vehicle__veh_id=pk).order_by("-ts")[:500]
         return Response(VehicleStatusHistorySerializer(q, many=True).data)
@@ -79,6 +87,18 @@ def make_vehicle_entry(v: Vehicle):
 
 
 class DashboardStatsView(APIView):
+
+    @swagger_auto_schema(
+        operation_summary="Dashboard statistics",
+        operation_description="""
+Возвращает агрегированные данные:
+- сколько активных машин
+- сколько на простое
+- низкий уровень топлива
+- ремонт / аренда
+        """,
+        tags=["Dashboard"]
+    )
     def get(self, request):
 
         vehicles = Vehicle.objects.all()
@@ -141,6 +161,21 @@ class DashboardStatsView(APIView):
 
 
 class VehicleDetailView(APIView):
+
+    @swagger_auto_schema(
+        operation_summary="Detailed vehicle info",
+        operation_description="""
+Возвращает полную информацию о технике:
+- название
+- геопозиция
+- топливо
+- привязанный водитель
+- фотографии
+- пробег
+- статус
+        """,
+        tags=["Vehicles"]
+    )
     def get(self, request, vehicle_id):
         try:
             v = Vehicle.objects.get(veh_id=vehicle_id)
@@ -149,3 +184,30 @@ class VehicleDetailView(APIView):
 
         ser = VehicleDetailSerializer(v)
         return Response(ser.data)
+
+
+
+class VehicleRepairsView(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, vehicle_id):
+        try:
+            v = Vehicle.objects.get(veh_id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            return Response({"error": "vehicle_not_found"}, 404)
+        q = Repair.objects.filter(vehicle=v).order_by("-date")
+        return Response(RepairSerializer(q, many=True).data)
+
+    def post(self, request, vehicle_id):
+        try:
+            v = Vehicle.objects.get(veh_id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            return Response({"error": "vehicle_not_found"}, 404)
+
+        data = request.data.copy()
+        data["vehicle"] = v.id
+        ser = RepairSerializer(data=data)
+        if not ser.is_valid():
+            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        ser.save()
+        return Response(ser.data, status=status.HTTP_201_CREATED)

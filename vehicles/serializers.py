@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import VehicleStatusHistory, FuelLevelHistory, TrackPoint, Event, Vehicle, VehicleAssignment
+from .models import VehicleStatusHistory, FuelLevelHistory, TrackPoint, Event, Vehicle, VehicleAssignment, Repair
 
 
 class VehicleStatusHistorySerializer(serializers.ModelSerializer):
@@ -75,7 +75,7 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
         user = assign.driver
         return {
             "id": user.id,
-            "name": f"{user.username} {user.surname}",
+            "name": f"{user.first_name or user.username} {user.surname or ''}".strip(),
             "phone": user.phone
         }
 
@@ -99,3 +99,12 @@ class VehicleDetailSerializer(serializers.ModelSerializer):
             return f"{int(obj.fuel)}%"
         except:
             return None
+
+
+class RepairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Repair
+        fields = ["id", "vehicle", "date", "title", "description", "parts", "cost_parts", "cost_work", "status"]
+        read_only_fields = ["id", "vehicle"]
+
+

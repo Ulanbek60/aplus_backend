@@ -1,1 +1,18 @@
+# Кеши Python
+pycache/
+*migrations/
+*.pyc
+*.pyo
+*lime/pycache/
+# Виртуальное окружение
+venv/
+.venv/
+env/
+ENV/
 .env
+# PyCharm
+.idea/
+
+# Временные файлы Git
+FETCH_HEAD
+db.sqlite3
