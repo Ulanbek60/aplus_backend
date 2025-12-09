@@ -123,30 +123,61 @@ class MeView(APIView):
 # =======================
 # TELEGRAM FULL REGISTER
 # =======================
+# users/views.py
 class FullRegisterView(APIView):
     def post(self, request):
-        telegram_id = request.data.get("telegram_id")
-        vehicle_id = request.data.get("vehicle_id")
+        data = request.data
 
-        if not telegram_id or not vehicle_id:
-            return Response({"error": "telegram_id and vehicle_id required"}, status=400)
+        # --- Обязательные только те поля, что реально приходят из бота ---
+        required = [
+            "telegram_id", "name", "surname", "birthdate",
+            "phone", "passport_id", "iin", "address",
+            "passport_front", "passport_back",
+            "driver_license", "selfie",
+            "language", "vehicle_id"
+        ]
 
+        missing = [f for f in required if f not in data]
+        if missing:
+            return Response({"error": f"missing fields: {missing}"}, status=400)
+
+        telegram_id = data["telegram_id"]
+
+        # --- Если юзер уже существует, обновляем, иначе создаём ---
         try:
             user = User.objects.get(telegram_id=telegram_id)
-            serializer = FullUserRegisterSerializer(user, data=request.data, partial=True)
+            creating = False
         except User.DoesNotExist:
-            serializer = FullUserRegisterSerializer(data=request.data)
+            user = User(telegram_id=telegram_id)
+            creating = True
 
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
+        # --- username и password обязательно нужны Django, но мы ставим безопасные дефолты ---
+        if creating:
+            user.username = f"user_{telegram_id}"
+            user.set_password("default_password")
 
-        user = serializer.save()
+        # --- записываем все поля, которые реально пришли ---
+        user.first_name = data["name"]
+        user.surname = data["surname"]
+        user.birthdate = data["birthdate"]
+        user.phone = data["phone"]
+        user.passport_id = data["passport_id"]
+        user.iin = data["iin"]
+        user.address = data["address"]
+        user.passport_front = data["passport_front"]
+        user.passport_back = data["passport_back"]
+        user.driver_license = data["driver_license"]
+        user.selfie = data["selfie"]
+        user.language = data["language"]
+        user.role = "driver"
         user.status = "pending_vehicle"
+
         user.save()
 
+        # --- создаём заявку на технику ---
         req = VehicleRequest.objects.create(
             user=user,
-            vehicle_id=vehicle_id,
+            vehicle_id=data["vehicle_id"],
             status="pending"
         )
 

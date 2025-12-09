@@ -5,7 +5,7 @@ from django.conf import settings                 # чтобы взять SECRET_
 from channels.generic.websocket import AsyncWebsocketConsumer  # базовый consumer
 from channels.db import database_sync_to_async    # если нужно дернуть синхронную модель из async
 from django.contrib.auth import get_user_model    # если захочешь вытаскивать пользователя
-User = get_user_model()                           # ссылка на модель User
+
 
 class VehicleStatusConsumer(AsyncWebsocketConsumer):
     # Consumer, который поддерживает: глобальную группу "vehicles" и per-vehicle "vehicle:<id>"
@@ -47,7 +47,7 @@ class VehicleStatusConsumer(AsyncWebsocketConsumer):
         # Но если path содержит vehicle_id — добавим и в per-vehicle группу.
         vehicle_id = self.scope.get("url_route", {}).get("kwargs", {}).get("vehicle_id")
         if vehicle_id:
-            await self.channel_layer.group_add(f"vehicle:{vehicle_id}", self.channel_name)
+            await self.channel_layer.group_add(f"vehicle_{vehicle_id}", self.channel_name)
 
         # принимаем соединение
         await self.accept()
@@ -62,7 +62,7 @@ class VehicleStatusConsumer(AsyncWebsocketConsumer):
         vehicle_id = self.scope.get("url_route", {}).get("kwargs", {}).get("vehicle_id")
         if vehicle_id:
             try:
-                await self.channel_layer.group_discard(f"vehicle:{vehicle_id}", self.channel_name)
+                await self.channel_layer.group_discard(f"vehicle_{vehicle_id}", self.channel_name)
             except Exception:
                 pass
 

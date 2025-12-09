@@ -1,4 +1,10 @@
 # services/polling_worker.py
+import os
+import django
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "aplus_backend.settings")
+django.setup()
+
 # async polling worker that queries PILOT API and pushes updates to channels
 import asyncio                                              # для event loop и sleep
 from asgiref.sync import sync_to_async                       # чтобы вызывать ORM синхронно
@@ -74,7 +80,7 @@ async def process_vehicle(channel_layer, v):
     # отправляем в глобальную группу
     await channel_layer.group_send("vehicles", {"type": "send_update", "data": payload})
     # отправляем в конкретную per-vehicle группу
-    await channel_layer.group_send(f"vehicle:{v.veh_id}", {"type": "send_update", "data": payload})
+    await channel_layer.group_send(f"vehicle_{v.veh_id}", {"type": "send_update", "data": payload})
 
 async def polling_loop():
     # основной цикл
