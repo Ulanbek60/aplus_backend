@@ -1,11 +1,36 @@
 version: "3.9"
 
 services:
+  db:
+    image: postgres:15
+    container_name: aplus-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: aplus-redis
+    restart: always
+
   backend:
     build: .
     container_name: aplus-backend
     command: >
       bash -c "
+      until pg_isready -h db -p 5432 -U ${POSTGRES_USER}; do
+        echo 'Waiting for Postgres...';
+        sleep 2;
+      done &&
       python manage.py migrate &&
       python manage.py collectstatic --noinput &&
       daphne -b 0.0.0.0 -p 8000 aplus_backend.asgi:application
@@ -17,22 +42,28 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
 
   worker:
     build: .
     container_name: aplus-worker
     command: >
-      bash -c "python -m services.polling_worker"
+      bash -c "
+      echo 'Waiting for backend...' &&
+      sleep 10 &&
+      python -m services.polling_worker
+      "
     volumes:
       - .:/app
     env_file:
       - .env
     depends_on:
-      - backend
-      - redis
+      backend:
+        condition: service_started
     restart: always
 
   nginx:
@@ -46,22 +77,6 @@ services:
     depends_on:
       - backend
     restart: always
-
-  redis:
-    image: redis:7
-    container_name: aplus-redis
-    restart: always
-
-  db:
-    image: postgres:15
-    container_name: aplus-db
-    restart: always
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
 
 volumes:
   postgres_data:

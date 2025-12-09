@@ -1,6 +1,8 @@
 # Кеши Python
 pycache/
-*migrations/
+# НЕ удаляем директорию migrations, только pycache
+*/migrations/__pycache__/
+
 *.pyc
 *.pyo
 *lime/pycache/
