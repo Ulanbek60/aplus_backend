@@ -12,6 +12,9 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . /app/
 
+RUN mkdir -p /app/static /app/media && \
+    chmod -R 777 /app/static /app/media
+
 # Создаём пользователя (по желанию)
 RUN useradd -m appuser || true
 USER appuser

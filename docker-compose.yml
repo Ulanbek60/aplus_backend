@@ -27,15 +27,12 @@ services:
     container_name: aplus-backend
     command: >
       bash -c "
-      until pg_isready -h db -p 5432 -U ${POSTGRES_USER}; do
-        echo 'Waiting for Postgres...';
-        sleep 2;
-      done &&
       python manage.py migrate &&
       python manage.py collectstatic --noinput &&
       daphne -b 0.0.0.0 -p 8000 aplus_backend.asgi:application
       "
     volumes:
+      - .:/app
       - static_volume:/app/static
       - media_volume:/app/media
     env_file:
