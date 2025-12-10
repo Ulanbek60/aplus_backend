@@ -168,13 +168,14 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_ALLOW_ALL = False
+CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://16.170.252.40",
 ]
 
-# Уруксат берилген HTTP методдор
 CORS_ALLOW_METHODS = [
     "GET",
     "POST",
