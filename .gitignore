@@ -1,20 +1,19 @@
 # Кеши Python
-pycache/
-# НЕ удаляем директорию migrations, только pycache
-*/migrations/__pycache__/
-
+__pycache__/
 *.pyc
 *.pyo
-*lime/pycache/
+
+# НЕ удаляем migrations, только pycache
+*/migrations/__pycache__/
+
 # Виртуальное окружение
 venv/
 .venv/
 env/
 ENV/
-.env
-# PyCharm
-.idea/
 
-# Временные файлы Git
+# Прочее
+.idea/
+.env
 FETCH_HEAD
 db.sqlite3
