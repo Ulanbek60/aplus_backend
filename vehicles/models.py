@@ -25,6 +25,8 @@ class Vehicle(models.Model):
     speed = models.FloatField(null=True, blank=True)
     fuel = models.FloatField(null=True, blank=True)
 
+    ignition = models.BooleanField(default=False)  # ← Добавить ЭТО
+
     status = models.CharField(max_length=20, default="active")
 
     updated_at = models.DateTimeField(auto_now=True)
