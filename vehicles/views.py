@@ -10,7 +10,9 @@ from .serializers import (
     TrackPointSerializer,
     EventSerializer,
     VehicleDetailSerializer,
-    RepairSerializer
+    RepairSerializer,
+    VEHICLE_FUEL_CAPACITY_DEFAULT,
+    FrontendVehicleSerializer
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -76,62 +78,38 @@ class VehicleViewSet(viewsets.ViewSet):
         return Response(TrackPointSerializer(q, many=True).data)
 
 
+# from .serializers import , VEHICLE_FUEL_CAPACITY_DEFAULT
+
 def make_vehicle_entry(v: Vehicle):
-    return {
-        "id": v.veh_id,
-        "name": v.name,
-        "fuel": v.fuel,
-        "lat": v.lat,
-        "lon": v.lon,
-    }
+    return FrontendVehicleSerializer.from_vehicle_obj(
+        v,
+        capacity=VEHICLE_FUEL_CAPACITY_DEFAULT
+    )
 
 
 class DashboardStatsView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Dashboard statistics",
-        operation_description="""
-Возвращает агрегированные данные:
-- сколько активных машин
-- сколько на простое
-- низкий уровень топлива
-- ремонт / аренда
-        """,
         tags=["Dashboard"]
     )
     def get(self, request):
 
         vehicles = Vehicle.objects.all()
 
-        # -----------------------------
         # 1. Низкий уровень топлива (<20)
-        # -----------------------------
         low_fuel_qs = vehicles.filter(fuel__lt=20)
         low_fuel = [make_vehicle_entry(v) for v in low_fuel_qs]
 
-        # -----------------------------
-        # 2. ACTIVE: ignition = True
-        # -----------------------------
-        active_ids = VehicleStatusHistory.objects.filter(
-            ignition=True
-        ).values_list("vehicle_id", flat=True)
-
-        active_qs = Vehicle.objects.filter(id__in=active_ids)
+        # 2. ACTIVE — машины с заведённым двигателем
+        active_qs = vehicles.filter(ignition=True)
         active = [make_vehicle_entry(v) for v in active_qs]
 
-        # -----------------------------
-        # 3. IDLE: ignition = False
-        # -----------------------------
-        idle_ids = VehicleStatusHistory.objects.filter(
-            ignition=False
-        ).values_list("vehicle_id", flat=True)
-
-        idle_qs = Vehicle.objects.filter(id__in=idle_ids)
+        # 3. IDLE — машины с выключенным двигателем
+        idle_qs = vehicles.filter(ignition=False)
         idle = [make_vehicle_entry(v) for v in idle_qs]
 
-        # -----------------------------
-        # 4. аренда / ремонт (позже)
-        # -----------------------------
+        # 4. ремонт / аренда (позже)
         rented = []
         repair = []
 

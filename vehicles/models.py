@@ -97,8 +97,10 @@ class VehicleStatusHistory(models.Model):
 
     class Meta:
         ordering = ["-ts"]
-        indexes = [models.Index(fields=["vehicle", "ts"])]
-
+        indexes = [
+            models.Index(fields=["ignition"]),
+            models.Index(fields=["vehicle", "ts"]),
+        ]
 
 class VehicleAssignment(models.Model):
     # vehicle - FK на Vehicle

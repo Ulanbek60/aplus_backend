@@ -11,6 +11,7 @@ from asgiref.sync import sync_to_async                       # чтобы выз
 from channels.layers import get_channel_layer                # для получения layer
 from vehicles.models import Vehicle, VehicleStatusHistory    # модели
 from services.pilot_client import pilot_request              # асинхронный клиент pilot
+from django.db import transaction
 
 # в этом примере используем период опроса 2 секунды
 POLL_INTERVAL = 2.0                                        # интервал опроса в секундах
@@ -61,13 +62,27 @@ def save_status_history_sync(vehicle_obj, item):
     )
 
 async def process_vehicle(channel_layer, v):
-    # для каждой машины делаем запрос
-    status = await fetch_status_for_vehicle(v)                # получаем статус от Pilot
+    status = await fetch_status_for_vehicle(v)
     if not status:
         return
-    # сохраняем историю (DB sync через sync_to_async)
-    obj = await save_status_history_sync(v, status)          # записываем в VehicleStatusHistory
-    # формируем payload для фронта
+
+    # 1. Обновляем Vehicle — теперь dashboard работает быстро
+    @sync_to_async
+    def update_vehicle(v, status):
+        v.lat = status["lat"]
+        v.lon = status["lon"]
+        v.speed = status["speed"]
+        v.fuel = status["fuel"]
+        v.ignition = status["ignition"]
+        v.save()
+        return v
+
+    v = await update_vehicle(v, status)
+
+    # 2. Сохраняем историю (можно оставить чтобы графики работали)
+    obj = await save_status_history_sync(v, status)
+
+    # 3. Формируем payload (исправлено)
     payload = {
         "vehicle_id": v.veh_id,
         "lat": obj.lat,
@@ -77,10 +92,11 @@ async def process_vehicle(channel_layer, v):
         "fuel": obj.fuel,
         "ts": obj.ts,
     }
-    # отправляем в глобальную группу
+
+    # 4. WS рассылка
     await channel_layer.group_send("vehicles", {"type": "send_update", "data": payload})
-    # отправляем в конкретную per-vehicle группу
     await channel_layer.group_send(f"vehicle_{v.veh_id}", {"type": "send_update", "data": payload})
+
 
 async def polling_loop():
     # основной цикл
